@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 
+import sys
+import re
+
+# 小文字アルファベット正規表現
+alpha_pattern = re.compile('[a-z]')
+
+# かな変換テーブル
 kana_table = {
     'a': 'あ', 'i': 'い', 'u': 'う', 'e': 'え', 'o': 'お',
     'ka': 'か', 'ki': 'き', 'ku': 'く', 'ke': 'け', 'ko': 'こ',
@@ -41,21 +48,69 @@ kana_table = {
 
 def convertKana(roma_chars):
 
-    # mapにキーが存在するかチェック
-    if kana_table.has_key(roma_chars) :
+    # mapにキーのローマ字が存在するかチェック
+    if roma_chars in kana_table :
         return kana_table[roma_chars]
     else :
         return False;
 
 
-def loadfile(filepath):
+def convertRomaJiFile(in_filepath,out_filepath) -> object:
+    kanastring = ''
+
     # ファイルを一行ずつ読み込む
-    for line in open(filepath, 'r'):
+    for line in open(in_filepath, 'r'):
         # 全て小文字とする
         line = line.lower()
+        out_line = ''
         # 一文字ずつ処理する
         chars = list(line)
+        romaji = ''
         for char in chars :
+            # アルファベットかチェック。
+            # アルファベットで無い場合、文字バッファをクリアして文字をそのまま結果に代入
+            if(alpha_pattern.match(char) is None):
+                # アルファベットでは無いので文字をそのまま行バッファに追加する
+
+                # 判定中の文字バッファがあれば先にラインバッファに移す
+                if(romaji != '') :
+                    out_line += romaji
+                    romaji = ''
+
+                out_line += char
+
+                continue
+            else:
+                # アルファベット
+                # ローマ字バッファに追加して変換する
+                # TODO 促音、長音の処理
+                romaji += char
+                kana = convertKana(romaji)
+                if kana is not False:
+                    # 変換成功。カナを行バッファに追加。文字バッファもクリア
+                    out_line += kana
+                    romaji = ''
+                else:
+                    # 変換失敗。3文字以上なら変換不能と判断してそのまま行バッファに追加
+                    if(len(romaji) >= 3) :
+                        out_line += romaji
+                        romaji = ''
+                    pass
+                pass
+            pass
+        print(out_line)
+    # 変換後のファイルを出力する
+#    out = open(out_filepath,'w')
+#    out.write(kanastring)
+
+# main process
+param = sys.argv
+
+# コマンドライン引数が指定どおりになっていなければusageを吐く
+if len(param) != 3:
+    print('Usage: kanaconvert [input_file] [output_file]')
+else:
+    convertRomaJiFile(param[1], param[2])
 
 
 
