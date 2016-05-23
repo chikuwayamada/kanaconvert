@@ -30,6 +30,7 @@ kana_table = {
     'rya': 'りゃ', 'ryu': 'りゅ', 'ryo': 'りょ',
     'gya': 'ぎゃ', 'gyu': 'ぎゅ', 'gyo': 'ぎょ',
     'zya': 'じゃ', 'zyu': 'じゅ', 'zyo': 'じょ',
+    'jya': 'じゃ', 'jyu': 'じゅ', 'jyo': 'じょ',
     'bya': 'びゃ', 'byu': 'びゅ', 'byo': 'びょ',
     'pya': 'ぴゃ', 'pyu': 'ぴゅ', 'pyo': 'ぴょ',
 
@@ -45,9 +46,14 @@ kana_table = {
     '-':'ー', ',':'、', '.':'。',
 }
 
-# 促音としてありうるアルファベットのリスト
-sokuon_list = {
-    't'
+# 母音
+boin_list = {
+    'a', 'i', 'u', 'e', 'o'
+}
+
+# 後ろに来る文字で判断する必要のあるアルファベットのリスト
+pend_list = {
+    't','n'
 }
 
 
@@ -68,8 +74,20 @@ def convertKana(roma_chars):
     if roma_chars in kana_table :
         return kana_table[roma_chars]
     else :
-        return False;
+        return False
 
+def convertPendingChars(lastConverted,pendingChar,newChar):
+    if pendingChar == 'n':
+        # 続く文字が母音でなく直前に変換に成功していれば'ん'
+        if newChar not in boin_list and newChar != 'n' and lastConverted:
+            return 'ん'
+    elif pendingChar == 't':
+        # 続く文字が't'で変換に成功していれば'っ'
+        if newChar == 't' and lastConverted:
+            return 'っ'
+        pass
+    pass
+    return False
 
 def convertRomaJiFile(in_filepath,out_filepath) -> object:
     kanastring = ''
@@ -85,6 +103,14 @@ def convertRomaJiFile(in_filepath,out_filepath) -> object:
         # 最終の変換に成功したかどうか
         lastConverted = False
         for char in chars :
+
+            # 後続文字で変化する文字の変換に成功した場合はラインバッファに追加
+            pend_char = convertPendingChars(lastConverted,romaji,char)
+            if(pend_char != False) :
+                out_line += pend_char
+                romaji = char
+                continue
+
             # 変換しうる文字かどうかをチェック(変換テーブルのキーと前方一致を取る
             # 対象の文字でない場合、文字バッファをクリアして文字をそのまま結果に代入
             romaji += char
@@ -98,12 +124,9 @@ def convertRomaJiFile(in_filepath,out_filepath) -> object:
                 continue
             else:
                 # アルファベット
-                # ローマ字バッファに追加して変換するビール
-                # TODO 促音の処理をしてない
-                if romaji == 'n' and lastConverted == True:
-                    # 直前の文字まででかなへの変換が成功している。かつ,nがきた場合、"ん"と認識するぽ
-                    out_line += 'ん'
-                    romaji = ''
+                # ローマ字バッファに追加して変換する
+                if romaji in pend_list and lastConverted == True:
+                    # 後続の文字で変わる文字が入力された場合、変換を待機する
                     lastConverted = True
                     pass
                 else :
@@ -124,10 +147,15 @@ def convertRomaJiFile(in_filepath,out_filepath) -> object:
                         pass
                     pass
             pass
+
+        # 未変換のバッファが残っていたら行バッファに追加
+        if len(romaji) > 0:
+            out_line += romaji
+            romaji = ''
+
         # for debug
         print(out_line)
-        # TODO 元の改行コードを気にしてない
-        kanastring += out_line + "\n"
+        kanastring += out_line
 
     # 変換後のファイルを出力する
     out = codecs.open(out_filepath,'w','utf_8')
